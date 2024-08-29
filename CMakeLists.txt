@@ -26,14 +26,13 @@ target_compile_definitions(${EXE} PRIVATE PRJ_VERSION="${PROJECT_VERSION}")
 find_package(Iconv REQUIRED)
 target_link_libraries(${EXE} PRIVATE Iconv::Iconv)
 
-set(BIN "${PROJECT_SOURCE_DIR}/bin")
-set_target_properties(${EXE} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${BIN})
-if(NOT GENERATOR_IS_MULTI_CONFIG)
-   set_target_properties(${EXE} PROPERTIES
-      RUNTIME_OUTPUT_DIRECTORY "${BIN}/$<CONFIG>")
-endif()
+# set(BIN "${PROJECT_SOURCE_DIR}/bin")
+# set_target_properties(${EXE} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${BIN})
+# if(NOT GENERATOR_IS_MULTI_CONFIG)
+#    set_target_properties(${EXE} PROPERTIES
+#       RUNTIME_OUTPUT_DIRECTORY "${BIN}/$<CONFIG>")
+# endif()
 
 install(
-   TARGETS ${EXE}
-   CONFIGURATIONS Debug
-   RUNTIME DESTINATION bin)
+   TARGETS ${PROJECT_NAME}
+   DESTINATION .)

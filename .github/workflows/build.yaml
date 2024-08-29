@@ -83,7 +83,7 @@ jobs:
         shell: bash
         run: |
           mkdir build
-          mkdir bin
+          mkdir instdir
           cmake \
             -S . \
             -B build \
@@ -100,7 +100,7 @@ jobs:
 
       - name: Pack
         shell: bash
-        working-directory: bin
+        working-directory: instdir
         run: |
           ls -laR
           ${{ matrix.config.archiver }} ../${{ matrix.config.artifact }} .
