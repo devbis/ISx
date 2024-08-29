@@ -23,7 +23,8 @@ target_compile_definitions(${EXE} PRIVATE PRJ_NAME="${PROJECT_NAME}")
 target_compile_definitions(${EXE} PRIVATE PRJ_UNAME="${PRJ_UC}")
 target_compile_definitions(${EXE} PRIVATE PRJ_VERSION="${PROJECT_VERSION}")
 
-TARGET_LINK_LIBRARIES(${EXE} "iconv")
+find_package(Iconv REQUIRED)
+target_link_libraries(${EXE} PRIVATE Iconv::Iconv)
 
 set(BIN "${PROJECT_SOURCE_DIR}/bin")
 set_target_properties(${EXE} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${BIN})
