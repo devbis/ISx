@@ -94,9 +94,9 @@ jobs:
         shell: bash
         run: cmake --build build --config ${{ matrix.config.build_type }}
 
-      # - name: Install Strip
-      #   shell: bash
-      #   run: cmake --install build --strip
+      - name: Install Strip
+        shell: bash
+        run: cmake --install build --strip
 
       - name: Pack
         shell: bash
