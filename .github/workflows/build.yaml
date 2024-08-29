@@ -83,7 +83,7 @@ jobs:
         shell: bash
         run: |
           mkdir build
-          mkdir instdir
+          mkdir bin
           cmake \
             -S . \
             -B build \
@@ -94,13 +94,13 @@ jobs:
         shell: bash
         run: cmake --build build --config ${{ matrix.config.build_type }}
 
-      - name: Install Strip
-        shell: bash
-        run: cmake --install build --strip
+      # - name: Install Strip
+      #   shell: bash
+      #   run: cmake --install build --strip
 
       - name: Pack
         shell: bash
-        working-directory: instdir
+        working-directory: bin
         run: |
           ls -laR
           ${{ matrix.config.archiver }} ../${{ matrix.config.artifact }} .
