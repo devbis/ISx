@@ -6,14 +6,17 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <direct.h>
+// #include <direct.h>
 #include "miniz_tinfl.h"
+#include <stdint.h>
 
-#if !defined(_STDINT) && !defined(_STDINT_H) && !defined(__int8_t_defined)
+#if !defined(_STDINT) && !defined(_STDINT_H) && !defined(__int8_t_defined) && !defined(__CLANG_STDINT_H)
 typedef unsigned char uint8_t;
 typedef unsigned short uint16_t;
 typedef unsigned long uint32_t;
 #endif
+
+#define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
 #define IN_BUF_SIZE (1024*512)
 #define OUT_BUF_SIZE (1024*512)
@@ -33,7 +36,9 @@ int inflate_fp(FILE *fp_r, FILE *fp_w) {
         return 1;
     }
     //
-    infile_size = _filelength(fileno(fp_r));
+    fseek(fp_r, 0, SEEK_END);
+    infile_size = ftell(fp_r);
+    fseek(fp_r, 0, SEEK_SET);
     infile_remaining = infile_size;
     pnext_in  = pbuf_in;
     pnext_out = pbuf_out;
@@ -46,7 +51,7 @@ int inflate_fp(FILE *fp_r, FILE *fp_w) {
     //
     for ( ; ; ) {
         if (!avail_in) { // pbuf_in left size
-            size_t n = __min(IN_BUF_SIZE, infile_remaining);
+            size_t n = MIN(IN_BUF_SIZE, infile_remaining);
             //
             if (fread(pbuf_in, 1, n, fp_r) != n) {
                 fprintf(stderr, "Failed reading from input file!\n");
@@ -103,7 +108,7 @@ int inflate_f(char *f_r, char *f_w) {
     FILE *fp_r, *fp_w;
     int ret;
     //
-    if (stricmp(f_r, f_w) == 0) {
+    if (strcasecmp(f_r, f_w) == 0) {
         fprintf(stderr, "Output file is the same as input file!\n");
         return 1;
     }

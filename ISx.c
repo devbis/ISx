@@ -156,9 +156,26 @@ cl /Os /MD /FeISx-vc.exe ISx.c inflate_tinfl.c ..\miniz\miniz_tinfl.c /I..\miniz
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <direct.h>
-#include <tchar.h>
+// #include <direct.h>
+// #include <tchar.h>
+#include <wchar.h>
 #include <locale.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <sys/stat.h>
+#include <limits.h>
+#include <iconv.h>
+#include "pe.h"
+
+#ifndef _MAX_PATH
+#define _MAX_PATH FILENAME_MAX
+#endif
+
+#define _MAX_EXT NAME_MAX
+#define _MAX_DRIVE NAME_MAX
+
+#define IMAGE_FILE_MACHINE_I386			0x014c
+#define IMAGE_FILE_MACHINE_AMD64		0x8664
 
 // PE file struct, 'WideChar <--> MultiByte'
 #if defined(_WIN32)
@@ -216,9 +233,29 @@ int utf16_to_cs(const wchar_t *str_w, UINT cp_out, char **str_m) {
 }
 
 #else // defined(_WIN32)
-#define ftellx _ftello64
-#define fseekx _fseeko64
+#define ftellx ftello
+#define fseekx fseeko
 // the header you need
+
+int utf16_to_cs(const wchar_t *str_w, uint16_t cp_out, char **str_m) {
+    const wchar_t *str_wn;
+    int len_m;
+    const char U16LE_BOM[] = "\xFF\xFE";
+    //
+    str_wn = (cp_out != 65000 && memcmp(str_w, U16LE_BOM, 2) == 0) ? str_w + 1 : str_w;
+
+    iconv_t ic = iconv_open("UTF-8", "UTF-16");
+    size_t inlen = wcslen(str_wn);
+    size_t outlen = 0;
+    len_m = iconv(ic, &str_wn, &inlen, str_m, &outlen);
+
+    // len_m = WideCharToMultiByte(cp_out, 0, str_wn, -1, NULL, 0, NULL, NULL);
+    if (len_m == 0) {return 0;}
+    // *str_m = calloc(len_m, sizeof(char));
+    // len_m = WideCharToMultiByte(cp_out, 0, str_wn, -1, *str_m, len_m, NULL, NULL);
+    return len_m - 1;
+}
+
 #endif // defined(_WIN32)
 
 #ifndef NO_INFLATE // maybe require 'stdint.h'
@@ -228,7 +265,7 @@ extern int inflate_f(char *f_r, char *f_w);
 /* **** */
 #define PREFER_BLOCK_SIZE (4096 * 64) // n * SECTOR_SIZE, for high efficiency
 
-#if !defined(_STDINT) && !defined(_STDINT_H) && !defined(__int8_t_defined)
+#if !defined(_STDINT) && !defined(_STDINT_H) && !defined(__CLANG_STDINT_H) && !defined(__int8_t_defined)
 typedef unsigned char uint8_t;
 typedef unsigned short uint16_t;
 typedef unsigned long uint32_t;
@@ -312,7 +349,7 @@ void make_all_dir_created(char *path, size_t start) {
     while (p = strpbrk(p, "\\/"), p) {
         *p = 0;
         p++;
-        _mkdir(path_new); // existing or new
+        mkdir(path_new, 0755); // existing or new
         strcpy(path_new, path);
     }
     //
@@ -860,9 +897,9 @@ uint32_t get_data_offset(FILE *fp){
 
 
 /* **** */
-void help(){
+void help(char *argv[]){
     fprintf(stderr, "InstallShield file extractor v%s @YX Hao\n", g_Ver);
-    fprintf(stderr, "Usage: %s <InstallShield file>\n", __argv[0]);
+    fprintf(stderr, "Usage: %s <InstallShield file>\n", argv[0]);
 }
 
 
@@ -874,19 +911,21 @@ int main(int argc, char **argv) {
     int n_2trans, ret, n_tmp;
     char *filename;
     char drive[_MAX_DRIVE], ext[_MAX_EXT];
-    char *dir = NULL, *fname = NULL, *launcher_name = NULL;
+    // char *dir = NULL,
+    //  *fname = NULL, 
+    char *launcher_name = NULL;
     //
     char MBCP[8] = "";
     //
-    g_CP = _getmbcp();
-    if (g_CP > 0) sprintf(MBCP, ".%d", g_CP);
-    setlocale(LC_ALL, MBCP);
+    // g_CP = _getmbcp();
+    // if (g_CP > 0) sprintf(MBCP, ".%d", g_CP);
+    // setlocale(LC_ALL, MBCP);
     //
     n_2trans = 1;
     ret = 0;
     //
     if (argc < 2) {
-        help();
+        help(argv);
         goto error;
     }
     //
@@ -898,7 +937,9 @@ int main(int argc, char **argv) {
         goto error;
     }
     //
-    total_len = _filelength(fileno(fp)); // works when greater than 2GB
+    off_t size = fseek(fp, 0, SEEK_END);
+    total_len = ftell(fp);  // works when greater than 2GB
+    fseek(fp, 0, SEEK_SET);
     data_offset = get_data_offset(fp);
     if (data_offset <= 0) {
         fprintf(stderr, "Not-pe-file!\n");
@@ -911,15 +952,19 @@ int main(int argc, char **argv) {
     fprintf(stdout, "0x%08X\n", data_offset);
     //
     n_tmp = strlen(filename);
-    dir = malloc(n_tmp);
-    fname = malloc(n_tmp);
-    _splitpath(filename, drive, dir, fname, ext);
-    g_DestDir = calloc(n_tmp - strlen(ext) + 1, 1);
-    _makepath(g_DestDir, drive, dir, fname, NULL);
-    g_DestDir = strcat_x(g_DestDir, "_u\\"); // in case of no ext
+    // dir = malloc(n_tmp);
+    // fname = malloc(n_tmp);
+    // dir = dirname(filename);
+    // fname = basename(filename);
+    // _splitpath(filename, drive, dir, fname, ext);
+    g_DestDir = calloc(n_tmp + 4, 1);
+    strncpy(g_DestDir, filename, strnlen(filename, FILENAME_MAX));
+
+    // _makepath(g_DestDir, drive, dir, fname, NULL);
+    g_DestDir = strcat_x(g_DestDir, "_u/"); // in case of no ext
     make_all_dir_created(g_DestDir, 0);
     //
-    launcher_name = strdup(fname);
+    launcher_name = strdup(filename);
     launcher_name = strcat_x(launcher_name, "_sfx");
     launcher_name = strcat_x(launcher_name, ext);
     //
@@ -964,7 +1009,7 @@ check_extra:
         char *file_name_out;
         //
         fprintf(stdout, "Extra data:\n");
-        file_name_out = strdup(fname);
+        file_name_out = strdup(filename);
         file_name_out = strcat_x(file_name_out, "_ext.bin");
         //
         save_data_to_file(fp, data_offset_x, data_len, file_name_out);
@@ -972,8 +1017,8 @@ check_extra:
     }
     //
 cleanup:
-    free(dir);
-    free(fname);
+    // free(dir);
+    // free(fname);
     free(launcher_name);
     free(g_DestDir);
     if (fp) fclose(fp);
